@@ -1,0 +1,122 @@
+---
+title: "NYPD Shooting Incident Data Report"
+author: "M. Jovanovski"
+date: "2023-03-17"
+output:
+  pdf_document: default
+---
+
+### Libraries
+The most important library for analyzing and visualizing data is tidyverse. This library consists of many libraries that can be used for data analysis and data visualization. I will use dlpyr and ggplot2 functions to perform most of the data analysis and data visualization tasks. I will also use library lubridate to convert date variable into date data type.
+
+```{r}
+library(lubridate)
+library(tidyverse)
+```
+
+### Import Dataset
+The dataset used is related to NYPD Shooting Incident historic data. It is obtained from open usa website data.gov. The link of the dataset is given below:
+(https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic). The dataset is provided by USA Police. The dataset contains records for shooting incident. I read the dataset from web using built-in funcation read.csv().
+
+
+```{r}
+#reading data from csv file
+data <- read.csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+head(data)
+```
+
+### Tidy and Transform
+First of all, I will convert the OCCUR_DATE variable to Date so that I can extract month, year and day for further analysis.
+
+```{r}
+#converting OCCUR_DATE to date data type
+data <- data%>%
+  mutate(OCCUR_DATE = as.Date(OCCUR_DATE, "%m/%d/%y"))
+```
+
+Now, I will convert all categorical variables into factor data type.
+
+```{r}
+#filtering out observations fro Unknown victim age group
+data <- data%>%
+  filter(VIC_AGE_GROUP != 'UNKNOWN')
+#converting categorical variables to character data type
+data <- data%>%
+  mutate(BORO = as.factor(BORO),
+         PERP_AGE_GROUP = as.factor(PERP_AGE_GROUP),
+         PERP_SEX = as.factor(PERP_SEX),
+         PERP_RACE = as.factor(PERP_RACE),
+         PERP_AGE_GROUP = as.factor(PERP_AGE_GROUP),
+         VIC_AGE_GROUP = as.factor(VIC_AGE_GROUP),
+         VIC_SEX = as.factor(VIC_SEX),
+         VIC_RACE = as.factor(VIC_RACE)
+         )
+```
+
+The variables of interest are, OCCUR_DATE, BORO and VIC_AGE_GROUP. so I will select only these columns from data.
+
+
+```{r}
+#selecting variables of interest
+subData <- data%>%
+  select(OCCUR_DATE, BORO, VIC_AGE_GROUP)
+#checking null values in selected data
+colSums(is.na(subData))
+```
+
+From above output, it is pretty evident that there is no null values in the dataset which means the dataset is already cleaned.
+
+```{r}
+#summary of data
+summary(subData)
+```
+
+Above output shows the summary of three variables of interest. From the output the date of incidents ranges from January 2020 to December 2020. For Boro there are 5 unique values. There are 7402 observations for Boro Bronx, 10365 observations for Boro Brooklyn, 3265 observations for Manhattan, and 3828 observations fro Queen and also 736 observations for Staten Island. Similarly there are 5 unique observations for victim age group. 2681 victims are less than 18 years, 9604 victims are between 18-24 years, 11386 victims are between 25-44 years, 1698 vitims are between 1698 years and 167 victims are older than 65 years.
+
+### Visualizations and Analysis
+
+For analysis, I will explore how the number of incidents varied over 12 months or a year and I also check whether there is an association between Borough and Victims' Age group, i.e is there any boroughs in which most incidents belong to particular age group of victims or not.
+
+```{r}
+#creating new variable month
+subData$month <- month(subData$OCCUR_DATE)
+#plotting number of incidents by month
+ggplot(subData, aes(x = month)) +
+  geom_bar(fill = "steelblue") + 
+  scale_x_continuous(breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+  labels = c("Jan", "Feb", "Mar","Apr","May","Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")) +
+  labs(title = "Distribution of Incidents by Months")
+```
+The above plot represents the distribution of shooting incidents by month. From above plot, it can be seen that most number of shooting incidents occurred in July followed by August, June and then September. It also shows that the least number of incidents occurred in February, followed by March and January. So I concluded that most number of shooting incidents occurred from May to September and least number of incidents occurred in starting months of the year.
+Now I want to analyze whether there is an association between Borough and Victims age group or not. The grouped bar chart for Distribution of Incidents by Borough and Victims is shown below:
+
+
+```{r}
+#plotting distribution of incidents by Victims' Age Group and Borough
+ggplot(subData, aes(x =BORO, fill = VIC_AGE_GROUP)) +
+  geom_bar(position = "dodge") + 
+  labs(title = "Distribution of Incidents by Victims Age Group and Borough")
+```
+The above plot represents the distribution of shooting incidents by Borough and Victims' Age Group. It shows that in almost all Boroughs, most number of victims in shooting incidents, victims have age between 25-44 followed by victims with age group of 18-24. The difference in number of victims for age group 18-24 and 25-44 varied by Borough. In all boroughs the least number of victims in shooting incidents are older than 65 years followed by 45-64. So this plot shows that distribution may be the same. But we need to do further analysis before making any conclusion.
+Since both variables are categorical, I will use Chi-Squared test of independence for checking is there any association between Borough and Victim Age group. The null and alternative hypotheses for Chi-Squared test of dependence are given below:
+H0: There is no association between Borough And Victim Age Group.
+Ha: There is a significant relation between Borough and Victim Age group.
+The significance level alpha = 0.05.
+
+```{r, warning=FALSE}
+#implementing chi square test
+chi <- chisq.test(subData$BORO, subData$VIC_AGE_GROUP)
+chi$observed
+chi$expected
+chi
+```
+
+### Conclusion
+Above output shows that the p-value is less than significance level alpha = 0.05, so I can reject the null hypotheses and conclude that there is a significant relation between Borough and Victims Age group. The observed and expected values for each category are also shown above. From above and expected outputs, it can be seen that there is a significant difference between the observed values as compared to the expected values. So I conclude that there is a significant relation between Borough and Victims age group which means that Victim age groups do vary by Boroughs.
+
+### Bias Identification
+Since this data is provided by NYPD which has been accused of racial bias and unfair treatment towards minority. There may be some biases as the data is not collected by independent sources. But anything about bias is not 100% confirmed and can not be validated, as I don't know about the inner activities of New York Police Department. I analyzed and made conclusions based on whatever data we have and tried to avoid making any false conclusion about any type of bias in this dataset.
+
+
+
+
